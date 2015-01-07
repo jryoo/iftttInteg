@@ -5,6 +5,9 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var webhook = require('express-ifttt-webhook');
+var url = require('url');
+var http = require('http');
+var request = require('request');
 
 var routes = require('./routes/index');
 var users = require('./routes/users');
@@ -17,7 +20,45 @@ app.set('view engine', 'jade');
 
 // uncomment after placing your favicon in /public
 //app.use(favicon(__dirname + '/public/favicon.ico'));
-app.use(webhook());
+
+var hardCodedMatrixUrl = 'https://ingestion-seward.dev.sfdc-matrix.net/streams/input001/event';
+
+var hardCodedMatrixAuth = 'Basic dGVzdDoxMjM0';
+
+app.use(webhook(function(json, done) {
+
+    var jsonString = JSON.stringify(json.description);
+
+    console.log('JSON DATA: ' + jsonString);
+
+    var parsed = url.parse(hardCodedMatrixUrl);
+    var opts = {
+        hostname : parsed.hostname,
+        port     : parsed.port,
+        path     : parsed.path,
+        method   : 'POST',
+        auth     : hardCodedMatrixAuth,
+        headers  : {
+          'Content-Type': 'application/json',
+          'Content-Length': jsonString.length,
+          'Authorization': hardCodedMatrixAuth
+        }
+    };
+
+    var request = http.request(opts, function(res) {
+        res.setEncoding('utf8');
+        res.on('data', function(data) {
+            console.log('RESPONSE: ' + data);
+        });
+    });
+
+    request.write(jsonString);
+    request.end();
+
+    done();
+
+}));
+
 app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
